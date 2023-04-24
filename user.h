@@ -23,6 +23,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int cstrace(int);
+int pstrace(int);
+int stracedump(int);
+int cstflags(int, char*, int, int, int, int, char*, int, int);
 
 // ulib.c
 int stat(char*, struct stat*);
@@ -37,3 +41,8 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
+
+int flagset(void);
+void printusage(void);
+void setcstrace(char*);
+void execstrace(char*, char**);

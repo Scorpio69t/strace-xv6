@@ -441,3 +441,20 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+int sys_stracedump(void) {
+  struct file *f;
+
+  if (argfd(0, 0, &f) < 0)
+    return -1;
+  f->writable = 1;
+  return rbdump(f);
+}
+
+int sys_cstflags(void) {
+  int e, s, f, o, n, ofn, c;
+  char *p, *of;
+
+  if (argint(0, &e) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0 || argint(3, &s) < 0 || argint(4, &f) < 0 || argint(5, &o) < 0 || argint(7, &ofn) < 0 || argptr(6, &of, ofn) < 0 || argint(8, &c) < 0)
+    return -1;
+  return cstflags(e, p, s, f, o, of, c);
+}

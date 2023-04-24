@@ -89,3 +89,24 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+int sys_cstrace(void) {
+  int s;
+  if (argint(0, &s) < 0)
+    return -1;
+  if (s < -1 || s > 1)
+    return -1;
+  return cstrace(s);
+}
+
+int sys_pstrace(void) {
+  int s;
+  
+  if (argint(0, &s) < 0)
+    return -1;
+  else if (s < -1 || s > 1)
+    return -1;
+  else if (s == -1)
+    return proc->pstrace;
+  proc->pstrace = s;
+  return proc->pstrace;
+}

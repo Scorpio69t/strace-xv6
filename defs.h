@@ -9,6 +9,24 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct event;
+struct estats;
+
+int             fst_write(int, char*, int);
+int             fst_close(int);
+int             fst_open(char*);
+
+void            writetrace(struct event*);
+char*           getname(int);
+int             getnum(char*);
+void            rbprint(void);
+void            rbinit(void);
+void            rbpop(void);
+struct event*   rbappend(struct proc*, int);
+int             rbdump(struct file*);
+void            statsinit(void);
+void            updatestats(struct event*);
+void            dumpstats(void);
 
 // bio.c
 void            binit(void);
@@ -21,6 +39,17 @@ void            consoleinit(void);
 void            cprintf(char*, ...);
 void            consoleintr(int(*)(void));
 void            panic(char*) __attribute__((noreturn));
+int             cstrace(int);
+int             cstflags(int, char*, int, int, int, char*, int);
+int             cst(void);
+int             cste(void);
+char*           cstename(void);
+int             csts(void);
+int             cstf(void);
+int             csto(void);
+char*           cstof(void);
+int             cstc(void);
+void            resetcflags(void);
 
 // exec.c
 int             exec(char*, char**);

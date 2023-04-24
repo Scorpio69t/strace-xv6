@@ -19,9 +19,22 @@ static void consputc(int);
 
 static int panicked = 0;
 
+struct cst {
+  int on;
+  int e;
+  char ename[32];
+  int s;
+  int f;
+  int o;
+  char of[32];
+  int c;
+};
+
+
 static struct {
   struct spinlock lock;
   int locking;
+  struct cst cstrace;
 } cons;
 
 static void
@@ -292,8 +305,74 @@ consoleinit(void)
   devsw[CONSOLE].write = consolewrite;
   devsw[CONSOLE].read = consoleread;
   cons.locking = 1;
+  cons.cstrace.on = 0;
+  cons.cstrace.e = 0;
+  safestrcpy(cons.cstrace.ename, "", 1);
+  cons.cstrace.s = 0;
+  cons.cstrace.f = 0;
+  cons.cstrace.o = 0;
+
 
   picenable(IRQ_KBD);
   ioapicenable(IRQ_KBD, 0);
 }
 
+int cstrace(int cstrace) {
+  if (cstrace == -1)
+    return cons.cstrace.on;
+  cons.cstrace.on = cstrace;
+  return cons.cstrace.on;
+}
+
+int cstflags(int e, char *ename, int s, int f, int o, char *of, int c) {
+  cons.cstrace.e = e;
+  safestrcpy(cons.cstrace.ename, ename, strlen(ename)+1);
+  cons.cstrace.s = s;
+  cons.cstrace.f = f;
+  cons.cstrace.o = o;
+  safestrcpy(cons.cstrace.of, of, strlen(of)+1);
+  cons.cstrace.c = c;
+//   cprintf("Flags: ");
+//   cprintf("e = %d | ", cste());
+//   cprintf("s = %d | ", csts());
+//   cprintf("f = %d | ", cstf());
+//   cprintf("o = %d | ", csto());
+//   cprintf("c = %d\n", cstc());
+  return 1;
+}
+
+int cst(void) {
+  return cons.cstrace.on;
+}
+
+int cste(void) {
+  return cons.cstrace.e;
+}
+
+char *cstename(void) {
+  return cons.cstrace.ename;
+}
+
+int csts(void) {
+  return cons.cstrace.s;
+}
+
+int cstf(void) {
+  return cons.cstrace.f;
+}
+
+int csto(void) {
+  return cons.cstrace.o;
+}
+
+char *cstof(void) {
+  return cons.cstrace.of;
+}
+
+int cstc(void) {
+  return cons.cstrace.c;
+}
+
+void resetcflags(void) {
+  cstflags(0, "", 0, 0, 0, 0, 0);
+}
