@@ -77,7 +77,7 @@ runcmd(struct cmd *cmd)
       exit();
 
     if (strcmp(ecmd->argv[0], "strace")) {
-      pstrace(1);
+      ptrace(1);
     }
 
     exec(ecmd->argv[0], ecmd->argv);

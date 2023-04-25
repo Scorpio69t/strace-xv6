@@ -20,7 +20,7 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_cstrace 22
-#define SYS_pstrace 23
+#define SYS_strace_state 22
+#define SYS_ptrace 23
 #define SYS_stracedump 24
-#define SYS_cstflags 25
+#define SYS_stflags 25

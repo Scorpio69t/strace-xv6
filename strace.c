@@ -3,67 +3,25 @@
 #include "user.h"
 #include "fcntl.h"
 
-char buf[512];
+void dumpstrace(int);
+void usage(void);
+void setcstrace(char*);
+void execstrace(char*,char**);
+void dumpstrace(int);
+void handleflags(char*,char*);
+
+
+char buf[1024];
 int e, s, f, o, fd, c;
-
-void printusage(void) {
-  int s = cstrace(-1);
-  if (s == 1)
-    printf(1, "strace is ON\n");
-  else if (s == 0)
-    printf(1, "strace is OFF\n");
-  printf(1, "Usage: strace [ON/OFF]... run [COMMAND]... DUMP\n");
-}
-
-void setcstrace(char *arg) {
-  if (!strcmp(arg, "on"))
-    cstrace(1);
-  else if (!strcmp(arg, "off"))
-    cstrace(0);
-}
-
-void execstrace(char *path, char **argv) {
-  int pid, c;
-
-  c = cstrace(-1);
-  if ((pid = fork()) == 0) {
-    cstrace(1);
-    pstrace(1);
-    exec(path, argv);
-    printf(2, "exec %s failed\n", path);
-    exit();
-  }
-  wait();
-  cstrace(c);
-}
-
-void dumpstrace(int fd) {
-  stracedump(fd);
-}
-
-void handleflags(char *syscall, char *ofile) {
-  if (s && f) {
-    printf(1, "strace: -s and -f flags cannot both be set\n");
-    exit();
-  }
-  if (e && o)
-    cstflags(e, syscall, sizeof(syscall), s, f, o, ofile, sizeof(ofile), c);
-  else if (e)
-    cstflags(e, syscall, sizeof(syscall), s, f, o, "", 0, c);
-  else if (o)
-    cstflags(e, "", 0, s, f, o, ofile, sizeof(ofile), c);
-  else
-    cstflags(e, "", 0, s, f, o, "", 0, c);
-}
 
 int main(int argc, char *argv[]) {
   int i;
-  char syscall[32], ofile[32];
+  char syscall[128], ofile[128];
   e = s = f = o = fd = c = 0;
   i = 1;
 
   if (argc <= 1) {
-    printusage();
+    usage();
     exit();
   }
 
@@ -123,7 +81,7 @@ int main(int argc, char *argv[]) {
 
   if (!strcmp(argv[1], "run")) {
     if (argc <= 2) {
-      printusage();
+      usage();
       exit();
     }
     execstrace(argv[2], argv+2);
@@ -137,7 +95,57 @@ int main(int argc, char *argv[]) {
   }
 
   else
-    printusage();
+    usage();
 
   exit();
+}
+
+void usage(void) {
+  int s = strace_state(-1);
+  if (s == 1)
+    printf(1, "strace is ON\n");
+  else if (s == 0)
+    printf(1, "strace is OFF\n");
+  printf(1, "Usage: strace [ON/OFF]... run [COMMAND]... DUMP\n");
+}
+
+void setcstrace(char *arg) {
+  if (!strcmp(arg, "on"))
+    strace_state(1);
+  else if (!strcmp(arg, "off"))
+    strace_state(0);
+}
+
+void execstrace(char *path, char **argv) {
+  int pid, c;
+
+  c = strace_state(-1);
+  if ((pid = fork()) == 0) {
+    strace_state(1);
+    ptrace(1);
+    exec(path, argv);
+    printf(2, "exec %s failed\n", path);
+    exit();
+  }
+  wait();
+  strace_state(c);
+}
+
+void dumpstrace(int fd) {
+  stracedump(fd);
+}
+
+void handleflags(char *syscall, char *ofile) {
+  if (s && f) {
+    printf(1, "strace: -s and -f flags cannot both be set\n");
+    exit();
+  }
+  if (e && o)
+    stflags(e, syscall, sizeof(syscall), s, f, o, ofile, sizeof(ofile), c);
+  else if (e)
+    stflags(e, syscall, sizeof(syscall), s, f, o, "", 0, c);
+  else if (o)
+    stflags(e, "", 0, s, f, o, ofile, sizeof(ofile), c);
+  else
+    stflags(e, "", 0, s, f, o, "", 0, c);
 }

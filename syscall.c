@@ -8,11 +8,42 @@
 #include "x86.h"
 #include "syscall.h"
 #include "strace.h"
-#include "format.c"
 #include "fs.h"
 #include "fcntl.h"
 
-
+int integer_to_string(char *buf, int bufsize, int n) {
+  char *start;
+  if (n < 0) {
+  if (!bufsize)
+    return -1;
+  *buf++ = '-';
+  bufsize--;
+  }
+  start = buf;
+  do {
+    int digit;
+    if (!bufsize)
+      return -1;
+    digit = n % 10;
+    if (digit < 0)
+      digit *= -1;
+    *buf++ = digit + '0';
+    bufsize--;
+    n /= 10;
+  } while (n);
+  if (!bufsize)
+    return -1;
+  *buf = 0;
+  --buf;
+  while (start < buf) {
+    char a = *start;
+    *start = *buf;
+    *buf = a;
+    ++start;
+    --buf;
+  }
+  return 0;
+}
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
 // Arguments on the stack, from the user call to the C
@@ -104,10 +135,10 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
-extern int sys_cstrace(void);
-extern int sys_pstrace(void);
+extern int sys_strace_state(void);
+extern int sys_ptrace(void);
 extern int sys_stracedump(void);
-extern int sys_cstflags(void);
+extern int sys_stflags(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -131,113 +162,11 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_cstrace] sys_cstrace, 
-[SYS_pstrace] sys_pstrace, 
+[SYS_strace_state] sys_strace_state, 
+[SYS_ptrace] sys_ptrace, 
 [SYS_stracedump] sys_stracedump,
-[SYS_cstflags] sys_cstflags,
+[SYS_stflags] sys_stflags,
 };
-
-void syscall(void) {
-  int num, ex, ret, nowrite;
-  struct event *e;
-
-  ex = 0;
-  nowrite = 0;
-  num = proc->tf->eax;
-  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-
-    /*
-    * Begin strace handler
-    */
-    if (proc->pstrace == 1) {
-      if (cst() == 1 && num == SYS_write) {
-        nowrite = 1;
-        ret = 1;
-      }
-
-      if (cste())
-        if (strncmp(cstename(), getname(num), strlen(cstename()))) {
-          if (num == SYS_exit) {
-            if (cstc())
-              dumpstats();
-            resetcflags();
-          }
-          goto end_strace_handler;
-        }
-
-      if (num == SYS_exec || num == SYS_exit) {
-        if (cstf()) {
-          if (num == SYS_exit) {
-            if (cstc()) {
-              dumpstats();
-              statsinit();
-            }
-            resetcflags();
-          }
-          goto end_strace_handler;
-        }
-        e = rbappend(proc, num);
-        if (cst() == 1 && cstc() == 0)
-          writetrace(e);
-        if (num == SYS_exit) {
-          if (cstc()) {
-            updatestats(e);
-            dumpstats();
-            statsinit();
-          }
-          resetcflags();
-        }
-        e->ret = 1;
-        if (cstc())
-          updatestats(e);
-        proc->tf->eax = syscalls[num]();
-        e->ret = proc->tf->eax;
-        if (e->ret == -1 && cstc())
-          updatestats(e);
-      } else {
-        if (!nowrite) {
-          proc->tf->eax = syscalls[num]();
-          ex = 1;
-          ret = proc->tf->eax;
-        }
-        if (csts() && ret == -1)
-          goto end_strace_handler;
-        if (cstf() && ret != -1)
-          goto end_strace_handler;
-        e = rbappend(proc, num);
-        e->ret = ret;
-        if (cst() == 1 && !cstc())
-          writetrace(e);
-        if (cstc())
-          updatestats(e);
-      }
-    }
-    /*
-    * End strace handler
-    */
-
-    else {
-    end_strace_handler:
-      if (!ex && !nowrite)
-        proc->tf->eax = syscalls[num]();
-    }
-  } else {
-    cprintf("%d %s: unknown sys call %d\n", proc->pid, proc->name, num);
-    proc->tf->eax = -1;
-  }
-}
-#define MAXTRACE 20
-#define NUMSYSCALLS 25
-
-struct event rbuf[MAXTRACE];
-struct estats stats[NUMSYSCALLS];
-
-void writetrace(struct event *e) {
-  cprintf("TRACE: pid = %d | command name = %s | syscall = %s", e->pid, e->command, e->name);
-  if (e->num != SYS_exec && e->num != SYS_exit)
-    cprintf(" | return value = %d", e->ret);
-  cprintf("\n");
-}
 
 char* getname(int num) {
   switch (num) {
@@ -262,13 +191,114 @@ char* getname(int num) {
     case SYS_link: return "link";
     case SYS_mkdir: return "mkdir";
     case SYS_close: return "close";
-    case SYS_cstrace: return "cstrace";
-    case SYS_pstrace: return "pstrace";
+    case SYS_strace_state: return "strace_state";
+    case SYS_ptrace: return "ptrace";
     case SYS_stracedump: return "stracedump";
-    case SYS_cstflags: return "cstflags";
+    case SYS_stflags: return "stflags";
   }
   return "";
 }
+
+void syscall(void) {
+  int num, ex, ret, nowrite;
+  struct event *e;
+
+  ex = 0;
+  nowrite = 0;
+  num = proc->tf->eax;
+  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+
+    /*
+    * Begin strace handler
+    */
+    if (proc->ptrace == 1) {
+      if (st() == 1 && num == SYS_write) {
+        nowrite = 1;
+        ret = 1;
+      }
+
+      if (ste())
+        if (strncmp(stename(), getname(num), strlen(stename()))) {
+          if (num == SYS_exit) {
+            if (stc())
+              dumpstats();
+            resetstflags();
+          }
+          goto end_strace_handler;
+        }
+
+      if (num == SYS_exec || num == SYS_exit) {
+        if (stf()) {
+          if (num == SYS_exit) {
+            if (stc()) {
+              dumpstats();
+              statsinit();
+            }
+            resetstflags();
+          }
+          goto end_strace_handler;
+        }
+        e = rbappend(proc, num);
+        if (st() == 1 && stc() == 0)
+          writetrace(e);
+        if (num == SYS_exit) {
+          if (stc()) {
+            updatestats(e);
+            dumpstats();
+            statsinit();
+          }
+          resetstflags();
+        }
+        e->ret = 1;
+        if (stc())
+          updatestats(e);
+        proc->tf->eax = syscalls[num]();
+        e->ret = proc->tf->eax;
+        if (e->ret == -1 && stc())
+          updatestats(e);
+      } else {
+        if (!nowrite) {
+          proc->tf->eax = syscalls[num]();
+          ex = 1;
+          ret = proc->tf->eax;
+        }
+        if (sts() && ret == -1)
+          goto end_strace_handler;
+        if (stf() && ret != -1)
+          goto end_strace_handler;
+        e = rbappend(proc, num);
+        e->ret = ret;
+        if (st() == 1 && !stc())
+          writetrace(e);
+        if (stc())
+          updatestats(e);
+      }
+    }
+    /*
+    * End strace handler
+    */
+
+    else {
+    end_strace_handler:
+      if (!ex && !nowrite)
+        proc->tf->eax = syscalls[num]();
+    }
+  } else {
+    cprintf("%d %s: unknown sys call %d\n", proc->pid, proc->name, num);
+    proc->tf->eax = -1;
+  }
+}
+
+struct event rbuf[MAXTRACE];
+struct estats stats[NUMSYSCALLS];
+
+void writetrace(struct event *e) {
+  cprintf("TRACE: pid = %d | command name = %s | syscall = %s", e->pid, e->command, e->name);
+  if (e->num != SYS_exec && e->num != SYS_exit)
+    cprintf(" | return value = %d", e->ret);
+  cprintf("\n");
+}
+
 
 /*
 * Ring Buffer Functions
@@ -277,7 +307,7 @@ char* getname(int num) {
 void rbprint() {
   int i;
   struct event *e;
-   
+
   i = 0;
   for (e = rbuf; e < &rbuf[MAXTRACE]; e++) {
     cprintf("RBENTRY %d: pid = %d | command = %s | name = %s", i, e->pid, e->command, e->name);
@@ -330,7 +360,7 @@ struct event *rbappend(struct proc *p, int num) {
   for (e = rbuf; e < &rbuf[MAXTRACE]; e++)
     if (e->pid == -1)
       goto add;
-  
+
   // Buffer is full
   rbpop();
   e = &rbuf[MAXTRACE-1];
@@ -348,7 +378,7 @@ int rbdump(struct file *f) {
   struct event *e;
   char chrpid[32];
   char chrret[32];
-  
+
   for (e = rbuf; e < &rbuf[MAXTRACE]; e++) {
     if (e->pid == -1)
       break;
@@ -366,7 +396,7 @@ int rbdump(struct file *f) {
     }
     filewrite(f, "\n", strlen("\n"));
   }
-  
+
   return 1;
 }
 
@@ -416,7 +446,7 @@ void dumpstats(void) {
   struct estats *es;
   int i;
 
-  if (cst() == 0) {
+  if (st() == 0) {
     cprintf("strace is OFF\n");
     exit();
   }
@@ -438,4 +468,3 @@ void dumpstats(void) {
   }
   cprintf("\n");
 }
-

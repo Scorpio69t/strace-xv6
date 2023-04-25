@@ -12,6 +12,7 @@ struct superblock;
 struct event;
 struct estats;
 
+
 int             fst_write(int, char*, int);
 int             fst_close(int);
 int             fst_open(char*);
@@ -27,7 +28,6 @@ int             rbdump(struct file*);
 void            statsinit(void);
 void            updatestats(struct event*);
 void            dumpstats(void);
-
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -39,17 +39,17 @@ void            consoleinit(void);
 void            cprintf(char*, ...);
 void            consoleintr(int(*)(void));
 void            panic(char*) __attribute__((noreturn));
-int             cstrace(int);
-int             cstflags(int, char*, int, int, int, char*, int);
-int             cst(void);
-int             cste(void);
-char*           cstename(void);
-int             csts(void);
-int             cstf(void);
-int             csto(void);
-char*           cstof(void);
-int             cstc(void);
-void            resetcflags(void);
+int             strace_state(int);
+int             stflags(int, char*, int, int, int, char*, int);
+int             st(void);
+int             ste(void);
+char*           stename(void);
+int             sts(void);
+int             stf(void);
+int             sto(void);
+char*           stofname(void);
+int             stc(void);
+void            resetstflags(void);
 
 // exec.c
 int             exec(char*, char**);
